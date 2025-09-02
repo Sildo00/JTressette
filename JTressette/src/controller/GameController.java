@@ -1,60 +1,53 @@
 package controller;
 
 import model.*;
+import utils.AudioManager;
 import utils.MatchObserver;
 import utils.UserProfile;
 import utils.UserProfileManager;
 import view.GameView;
 import view.MainMenuView;
+import view.Position;
+import view.SwingGameView;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import javax.swing.*;
+import java.util.*;
 
 /**
- * Controller principale che coordina il flusso di gioco tra Model e View.
- * Si registra come osservatore del MatchManager e gestisce:
- * - Avvio di nuove partite
- * - Gestione dei turni di gioco (bot e umano)
- * - Aggiornamento della vista in base agli eventi di gioco
- * - Salvataggio e aggiornamento delle statistiche del profilo utente
+ * Controller principale che gestisce il flusso tra menu e partita.
+ * Coordina creazione giocatori, posizionamento, avvio e gestione eventi di gioco.
  */
 public class GameController implements MatchObserver {
 
     private final GameView gameView;
     private final MainMenuView mainMenuView;
     private final UserProfileManager profileManager;
+
     private MatchManager matchManager;
     private UserProfile currentProfile;
 
     /**
-     * Costruisce un nuovo GameController.
-     * @param gameView Vista di gioco
-     * @param mainMenuView Vista del menu principale
-     * @param profileManager Gestore dei profili utente
-     * @throws NullPointerException se uno dei parametri è null
+     * Inizializza il controller e collega le viste.
      */
     public GameController(GameView gameView, MainMenuView mainMenuView, UserProfileManager profileManager) {
         this.gameView = Objects.requireNonNull(gameView);
         this.mainMenuView = Objects.requireNonNull(mainMenuView);
         this.profileManager = Objects.requireNonNull(profileManager);
+        this.gameView.impostaController(this);
         configuraMenuPrincipale();
     }
 
     /**
-     * Configura le azioni dei pulsanti del menu principale
-     * registrando le callback fornite dal controller.
+     * Registra le azioni del menu principale.
      */
     private void configuraMenuPrincipale() {
         mainMenuView.setOnPlay(this::avviaNuovaPartita);
-        mainMenuView.setOnSettings(gameView::mostraImpostazioni);
+        mainMenuView.setOnSettings(this::mostraImpostazioni);
         mainMenuView.setOnExit(() -> System.exit(0));
     }
 
     /**
-     * Avvia una nuova partita in base alle impostazioni selezionate nella vista.
-     * Carica il profilo utente, crea i giocatori e le squadre (se modalità 2vs2),
-     * istanzia il MatchManager con TressetteScoring e avvia il primo round.
+     * Avvia una nuova partita e imposta posizioni e squadre.
      */
     private void avviaNuovaPartita() {
         currentProfile = profileManager.load(mainMenuView.getSelectedProfileName());
@@ -62,28 +55,45 @@ public class GameController implements MatchObserver {
         ScoringStrategy scoring = new TressetteScoring();
         List<Player> players;
         Player startingPlayer;
+        List<Team> teams = null;
 
         if (mainMenuView.isTwoVsTwo()) {
             players = creaGiocatori2vs2(scoring);
-            startingPlayer = players.get(0);
-            List<Team> teams = creaSquadre(players);
-            matchManager = new MatchManager(players, startingPlayer, scoring, teams);
+            startingPlayer = scegliGiocatoreCasuale(players);
+            teams = creaSquadre2vs2(players);
         } else {
             players = creaGiocatori1vs1(scoring);
-            startingPlayer = players.get(0);
+            startingPlayer = scegliGiocatoreCasuale(players);
+        }
+
+        if (teams != null) {
+            matchManager = new MatchManager(players, startingPlayer, scoring, teams);
+        } else {
             matchManager = new MatchManager(players, startingPlayer, scoring);
             matchManager.enableDeck(new Deck());
         }
 
         matchManager.addObserver(this);
-        gameView.impostaController(this);
+        gameView.impostaPosizioniGiocatori(calcolaPosizioni(players, mainMenuView.isTwoVsTwo()));
+
+        AudioManager.getInstance().playResource("/audio/start.wav");
+
+        if (gameView instanceof SwingGameView sgv) {
+            SwingUtilities.invokeLater(sgv::mostraGioco);
+        }
+
         matchManager.startNewRound();
     }
 
     /**
-     * Crea due giocatori (umano e bot) per la modalità 1vs1.
-     * @param scoring Strategia di punteggio da assegnare al bot
-     * @return Lista contenente i due giocatori
+     * Mostra la schermata impostazioni.
+     */
+    private void mostraImpostazioni() {
+        gameView.mostraImpostazioni();
+    }
+
+    /**
+     * Crea i giocatori per la modalità 1vs1.
      */
     private List<Player> creaGiocatori1vs1(ScoringStrategy scoring) {
         Player umano = new HumanPlayer(currentProfile.getNome());
@@ -92,33 +102,64 @@ public class GameController implements MatchObserver {
     }
 
     /**
-     * Crea quattro giocatori (umano e tre bot) per la modalità 2vs2.
-     * @param scoring Strategia di punteggio da assegnare ai bot
-     * @return Lista contenente i quattro giocatori
+     * Crea i giocatori per la modalità 2vs2.
      */
     private List<Player> creaGiocatori2vs2(ScoringStrategy scoring) {
         Player umano = new HumanPlayer(currentProfile.getNome());
-        Player botAlleato = new BotPlayer("Bot Alleato", scoring);
-        Player botAvversario1 = new BotPlayer("Bot Avv1", scoring);
-        Player botAvversario2 = new BotPlayer("Bot Avv2", scoring);
-        return List.of(umano, botAvversario1, botAlleato, botAvversario2);
+        Player bot1 = new BotPlayer("Bot 1", scoring);
+        Player bot2 = new BotPlayer("Bot 2", scoring);
+        Player bot3 = new BotPlayer("Bot 3", scoring);
+        return List.of(umano, bot1, bot2, bot3);
     }
 
     /**
-     * Crea due squadre per la modalità 2vs2.
-     * @param players Lista dei giocatori
-     * @return Lista contenente le due squadre
+     * Crea le squadre per la modalità 2vs2 con umano e bot a NORTH nella stessa squadra.
      */
-    private List<Team> creaSquadre(List<Player> players) {
-        Team squadra1 = new Team("Squadra 1", List.of(players.get(0), players.get(2)));
-        Team squadra2 = new Team("Squadra 2", List.of(players.get(1), players.get(3)));
-        return List.of(squadra1, squadra2);
+    private List<Team> creaSquadre2vs2(List<Player> players) {
+        Map<Player, Position> posizioni = calcolaPosizioni(players, true);
+        Player umano = players.stream().filter(p -> p instanceof HumanPlayer).findFirst().orElseThrow();
+        Player alleato = posizioni.entrySet().stream()
+                .filter(e -> e.getValue() == Position.NORTH)
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElseThrow();
+        List<Player> squadraUmano = List.of(umano, alleato);
+        List<Player> squadraAvversaria = new ArrayList<>(players);
+        squadraAvversaria.removeAll(squadraUmano);
+        return List.of(new Team("Squadra 1", squadraUmano), new Team("Squadra 2", squadraAvversaria));
     }
 
     /**
-     * Gestisce la selezione di una carta da parte del giocatore umano.
-     * @param carta Carta selezionata
-     * @throws IllegalStateException se non esiste un giocatore umano nella partita
+     * Seleziona casualmente il primo giocatore di mano.
+     */
+    private Player scegliGiocatoreCasuale(List<Player> players) {
+        return players.get(new Random().nextInt(players.size()));
+    }
+
+    /**
+     * Calcola le posizioni dei giocatori.
+     */
+    private Map<Player, Position> calcolaPosizioni(List<Player> players, boolean isTwoVsTwo) {
+        Map<Player, Position> posizioni = new HashMap<>();
+        Player umano = players.stream().filter(p -> p instanceof HumanPlayer).findFirst().orElseThrow();
+        posizioni.put(umano, Position.SOUTH);
+
+        List<Player> altri = new ArrayList<>(players);
+        altri.remove(umano);
+
+        if (isTwoVsTwo) {
+            Position[] ordine = {Position.WEST, Position.NORTH, Position.EAST};
+            for (int i = 0; i < altri.size(); i++) {
+                posizioni.put(altri.get(i), ordine[i]);
+            }
+        } else {
+            posizioni.put(altri.get(0), Position.NORTH);
+        }
+        return posizioni;
+    }
+
+    /**
+     * Gestisce la carta selezionata dall'umano.
      */
     public void cartaSelezionataDalGiocatore(Card carta) {
         Player umano = matchManager.getPunteggiGiocatore().keySet().stream()
@@ -126,6 +167,21 @@ public class GameController implements MatchObserver {
                 .findFirst()
                 .orElseThrow();
         matchManager.playCard(umano, carta);
+    }
+
+    /**
+     * Gestisce l'uscita dalla partita.
+     */
+    public void handleExitPartita() {
+        if (currentProfile != null) {
+            currentProfile.incrementaPartite();
+            profileManager.save(currentProfile);
+        }
+        AudioManager.getInstance().playResource("/audio/exit.wav");
+        if (gameView instanceof SwingGameView sgv) {
+            SwingUtilities.invokeLater(sgv::mostraMenuPrincipale);
+        }
+        matchManager = null;
     }
 
     @Override
@@ -137,22 +193,25 @@ public class GameController implements MatchObserver {
             );
             matchManager.playCard(bot, scelta);
         } else {
-            gameView.abilitaSelezioneCarte((HumanPlayer) currentPlayer);
+            gameView.abilitaSelezioneCarte(currentPlayer);
         }
     }
 
     @Override
     public void onCardPlayed(Player player, Card card) {
+        AudioManager.getInstance().playResource("/audio/card_play.wav");
         gameView.mostraCartaGiocata(player, card);
     }
 
     @Override
     public void onCardDrawn(Player player, Card card, boolean revealTemporaneo) {
+        AudioManager.getInstance().playResource("/audio/card_draw.wav");
         gameView.mostraCartaPescata(player, card, revealTemporaneo);
     }
 
     @Override
     public void onTrickEnd(Player winner, int points) {
+        AudioManager.getInstance().playResource("/audio/trick_win.wav");
         gameView.mostraFinePresa(winner, points);
     }
 
@@ -168,12 +227,15 @@ public class GameController implements MatchObserver {
 
     @Override
     public void onRoundEnd() {
+        AudioManager.getInstance().playResource("/audio/round_end.wav");
         gameView.mostraFineRound();
     }
 
     @Override
     public void onMatchEndGiocatore(Player winnerOrNullOnTie) {
-        aggiornaStatisticheProfilo(winnerOrNullOnTie != null && winnerOrNullOnTie instanceof HumanPlayer);
+        boolean vittoria = winnerOrNullOnTie != null && winnerOrNullOnTie instanceof HumanPlayer;
+        aggiornaStatisticheProfilo(vittoria);
+        AudioManager.getInstance().playResource("/audio/game_end.wav");
         gameView.mostraFinePartitaGiocatore(winnerOrNullOnTie);
     }
 
@@ -182,14 +244,17 @@ public class GameController implements MatchObserver {
         boolean vittoria = winnerOrNullOnTie != null &&
                 winnerOrNullOnTie.getMembers().stream().anyMatch(p -> p instanceof HumanPlayer);
         aggiornaStatisticheProfilo(vittoria);
+        AudioManager.getInstance().playResource("/audio/game_end.wav");
         gameView.mostraFinePartitaSquadra(winnerOrNullOnTie);
     }
 
     /**
-     * Aggiorna le statistiche del profilo utente corrente e salva i dati.
-     * @param vittoria true se il giocatore umano ha vinto, false altrimenti
+     * Aggiorna le statistiche del profilo in base all'esito della partita.
      */
     private void aggiornaStatisticheProfilo(boolean vittoria) {
+        if (currentProfile == null) {
+            return;
+        }
         currentProfile.incrementaPartite();
         if (vittoria) {
             currentProfile.incrementaVittorie();

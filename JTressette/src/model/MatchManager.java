@@ -250,7 +250,10 @@ public class MatchManager implements MatchObservable {
      * @return Giocatore vincitore o null.
      */
     private Player trovaVincitore() {
-        int max = punteggiGiocatore.values().stream().max().orElse(0);
+    	int max = punteggiGiocatore.values().stream()
+                .mapToInt(Integer::intValue)
+                .max()
+                .orElse(0);
         List<Player> top = punteggiGiocatore.entrySet().stream()
                 .filter(e -> e.getValue().intValue() == max)
                 .map(Map.Entry::getKey)
@@ -263,7 +266,10 @@ public class MatchManager implements MatchObservable {
      * @return Squadra vincitrice o null.
      */
     private Team trovaVincitoreSquadra() {
-        int max = punteggiSquadra.values().stream().max().orElse(0);
+        int max = punteggiSquadra.values().stream()
+        		.mapToInt(Integer::intValue)
+                .max()
+                .orElse(0);
         List<Team> top = punteggiSquadra.entrySet().stream()
                 .filter(e -> e.getValue().intValue() == max)
                 .map(Map.Entry::getKey)

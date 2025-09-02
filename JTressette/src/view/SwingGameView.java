@@ -7,106 +7,162 @@ import model.Player;
 import model.Team;
 
 import javax.swing.*;
-import javax.swing.Timer;
-import javax.swing.border.LineBorder;
 import java.awt.*;
-import java.util.List;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Implementazione Swing della GameView.
- * Mostra area tavolo, mano del giocatore umano, punteggi e log eventi.
+ * Gestisce la visualizzazione del tavolo, delle mani, degli avversari e dei punteggi.
  */
 public class SwingGameView extends JFrame implements GameView {
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
 
-	private GameController controller;
+    private GameController controller;
+    private final JPanel tavoloPanel;
+    private final JPanel manoGiocatorePanel;
+    private final JPanel avversarioNordPanel;
+    private final JPanel avversarioOvestPanel;
+    private final JPanel avversarioEstPanel;
+    private final JPanel punteggiPanel;
+    private final JButton exitButton;
 
-    private final JPanel tavoloPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 16, 16));
-    private final JPanel manoPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 8));
-    private final JPanel punteggiPanel = new JPanel(new GridLayout(0, 1, 4, 4));
-    private final JTextArea logArea = new JTextArea(8, 60);
+    private final Map<Player, Position> posizioniGiocatori = new HashMap<>();
 
-    private final Map<Player, JLabel> lastPlayedByPlayer = new ConcurrentHashMap<>();
-
-    /**
-     * Costruisce la finestra principale di gioco.
-     */
     public SwingGameView() {
-        super("JTressette");
-        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        setLayout(new BorderLayout(8, 8));
-
-        JScrollPane logScroll = new JScrollPane(logArea);
-        logArea.setEditable(false);
-
-        JPanel top = new JPanel(new BorderLayout());
-        top.add(punteggiPanel, BorderLayout.WEST);
-        top.add(tavoloPanel, BorderLayout.CENTER);
-
-        add(top, BorderLayout.CENTER);
-        add(manoPanel, BorderLayout.SOUTH);
-        add(logScroll, BorderLayout.EAST);
-
-        setSize(1000, 700);
+        setTitle("JTressette");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(1024, 768);
         setLocationRelativeTo(null);
+        setLayout(new BorderLayout());
+
+        tavoloPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 20));
+        tavoloPanel.setBackground(new Color(0, 102, 0));
+
+        manoGiocatorePanel = new JPanel(new FlowLayout());
+        manoGiocatorePanel.setOpaque(false);
+
+        avversarioNordPanel = new JPanel(new FlowLayout());
+        avversarioNordPanel.setOpaque(false);
+
+        avversarioOvestPanel = new JPanel(new GridLayout(3, 1));
+        avversarioOvestPanel.setOpaque(false);
+
+        avversarioEstPanel = new JPanel(new GridLayout(3, 1));
+        avversarioEstPanel.setOpaque(false);
+
+        punteggiPanel = new JPanel();
+        punteggiPanel.setOpaque(false);
+        punteggiPanel.setLayout(new BoxLayout(punteggiPanel, BoxLayout.Y_AXIS));
+
+        exitButton = new JButton("Esci");
+
+        JPanel topPanel = new JPanel(new BorderLayout());
+        topPanel.setOpaque(false);
+        topPanel.add(avversarioNordPanel, BorderLayout.CENTER);
+        topPanel.add(exitButton, BorderLayout.EAST);
+
+        JPanel westPanel = new JPanel(new BorderLayout());
+        westPanel.setOpaque(false);
+        westPanel.add(avversarioOvestPanel, BorderLayout.CENTER);
+        westPanel.add(punteggiPanel, BorderLayout.SOUTH);
+
+        JPanel eastPanel = new JPanel(new BorderLayout());
+        eastPanel.setOpaque(false);
+        eastPanel.add(avversarioEstPanel, BorderLayout.CENTER);
+
+        add(topPanel, BorderLayout.NORTH);
+        add(westPanel, BorderLayout.WEST);
+        add(tavoloPanel, BorderLayout.CENTER);
+        add(eastPanel, BorderLayout.EAST);
+        add(manoGiocatorePanel, BorderLayout.SOUTH);
     }
+    
+    /**
+     * Mostra la schermata di gioco.
+     */
+    public void mostraGioco() {
+        setVisible(true);
+    }
+
+    /**
+     * Torna al menu principale.
+     */
+    public void mostraMenuPrincipale() {
+        setVisible(false);
+    }
+
 
     @Override
     public void impostaController(GameController controller) {
         this.controller = controller;
-    }
-
-    @Override
-    public void mostraImpostazioni() {
-        JOptionPane.showMessageDialog(this, "Impostazioni (da implementare)", "Impostazioni", JOptionPane.INFORMATION_MESSAGE);
-    }
-
-    @Override
-    public void abilitaSelezioneCarte(HumanPlayer giocatore) {
-        manoPanel.removeAll();
-        List<Card> mano = giocatore.getMano();
-        if (mano != null) {
-            for (Card c : mano) {
-                JButton btn = new JButton(toLabel(c));
-                btn.addActionListener(e -> controller.cartaSelezionataDalGiocatore(c));
-                manoPanel.add(btn);
+        exitButton.addActionListener(e -> {
+            int scelta = JOptionPane.showConfirmDialog(
+                    this,
+                    "Sei sicuro di uscire dalla partita?",
+                    "Conferma uscita",
+                    JOptionPane.YES_NO_OPTION
+            );
+            if (scelta == JOptionPane.YES_OPTION) {
+                controller.handleExitPartita();
             }
+        });
+    }
+
+    @Override
+    public void impostaPosizioniGiocatori(Map<Player, Position> mappaPosizioni) {
+        posizioniGiocatori.clear();
+        posizioniGiocatori.putAll(mappaPosizioni);
+    }
+
+    @Override
+    public void abilitaSelezioneCarte(Player humanPlayer) {
+        if (!(humanPlayer instanceof HumanPlayer umano)) {
+            return;
         }
-        manoPanel.revalidate();
-        manoPanel.repaint();
-        log("Seleziona una carta da giocare.");
+        manoGiocatorePanel.removeAll();
+        for (Card c : umano.getMano()) {
+            JButton btn = new JButton(new ImageIcon(getClass().getResource(
+                    "/carte/" + c.getSeme().name().toLowerCase() + "_" + c.getValore().name().toLowerCase() + ".png"
+            )));
+            btn.addActionListener(e -> controller.cartaSelezionataDalGiocatore(c));
+            manoGiocatorePanel.add(btn);
+        }
+        manoGiocatorePanel.revalidate();
+        manoGiocatorePanel.repaint();
     }
 
     @Override
     public void mostraCartaGiocata(Player player, Card card) {
-        JLabel lbl = new JLabel(toLabel(card));
-        lbl.setBorder(new LineBorder(Color.DARK_GRAY, 1));
-        tavoloPanel.add(lbl);
-        tavoloPanel.revalidate();
-        tavoloPanel.repaint();
-        lastPlayedByPlayer.put(player, lbl);
-        log(player.getNome() + " gioca " + card);
+        JLabel lbl = new JLabel(new ImageIcon(getClass().getResource(
+                "/carte/" + card.getSeme().name().toLowerCase() + "_" + card.getValore().name().toLowerCase() + ".png"
+        )));
+        Position pos = posizioniGiocatori.get(player);
+        if (pos != null) {
+            switch (pos) {
+                case SOUTH -> manoGiocatorePanel.add(lbl);
+                case NORTH -> avversarioNordPanel.add(lbl);
+                case WEST -> avversarioOvestPanel.add(lbl);
+                case EAST -> avversarioEstPanel.add(lbl);
+            }
+        } else {
+            tavoloPanel.add(lbl);
+        }
+        revalidate();
+        repaint();
     }
 
     @Override
     public void mostraCartaPescata(Player player, Card card, boolean revealTemporaneo) {
-        String info = player.getNome() + " pesca " + (revealTemporaneo ? card.toString() : "una carta");
-        log(info);
-        // Facoltativo: highlight temporaneo
-        if (revealTemporaneo) {
-            flashMessage(info);
+        if (player instanceof HumanPlayer umano) {
+            abilitaSelezioneCarte(umano);
         }
     }
 
     @Override
     public void mostraFinePresa(Player winner, int points) {
-        log("Presa a " + winner.getNome() + " (" + points + " punti).");
+        JOptionPane.showMessageDialog(this, winner.getNome() + " prende. +" + points + " punti");
         tavoloPanel.removeAll();
         tavoloPanel.revalidate();
         tavoloPanel.repaint();
@@ -123,48 +179,30 @@ public class SwingGameView extends JFrame implements GameView {
     @Override
     public void aggiornaPunteggiSquadre(Map<Team, Integer> scores) {
         punteggiPanel.removeAll();
-        scores.forEach((t, s) -> punteggiPanel.add(new JLabel(t.getName() + ": " + s)));
+        scores.forEach((t, s) -> punteggiPanel.add(new JLabel(t.getNome() + ": " + s)));
         punteggiPanel.revalidate();
         punteggiPanel.repaint();
     }
 
     @Override
     public void mostraFineRound() {
-        log("Fine round.");
-        flashMessage("Fine round");
+        JOptionPane.showMessageDialog(this, "Fine round");
     }
 
     @Override
-    public void mostraFinePartitaGiocatore(Player winner) {
-        String msg = winner == null ? "Parità! Spareggio necessario." : "Vince " + winner.getNome();
-        JOptionPane.showMessageDialog(this, msg, "Fine partita 1vs1", JOptionPane.INFORMATION_MESSAGE);
-        log("Fine partita 1vs1: " + msg);
+    public void mostraFinePartitaGiocatore(Player winnerOrNullOnTie) {
+        String msg = winnerOrNullOnTie == null ? "Pareggio" : "Vince " + winnerOrNullOnTie.getNome();
+        JOptionPane.showMessageDialog(this, msg);
     }
 
     @Override
-    public void mostraFinePartitaSquadra(Team winner) {
-        String msg = winner == null ? "Parità! Spareggio necessario." : "Vince " + winner.getName();
-        JOptionPane.showMessageDialog(this, msg, "Fine partita 2vs2", JOptionPane.INFORMATION_MESSAGE);
-        log("Fine partita 2vs2: " + msg);
+    public void mostraFinePartitaSquadra(Team winnerOrNullOnTie) {
+        String msg = winnerOrNullOnTie == null ? "Pareggio" : "Vince " + winnerOrNullOnTie.getNome();
+        JOptionPane.showMessageDialog(this, msg);
     }
 
-    private void log(String s) {
-        logArea.append(s + "\n");
-        logArea.setCaretPosition(logArea.getDocument().getLength());
-    }
-
-    private void flashMessage(String text) {
-        JDialog d = new JDialog(this, "Info", false);
-        d.add(new JLabel(text, SwingConstants.CENTER));
-        d.setSize(300, 120);
-        d.setLocationRelativeTo(this);
-        Timer t = new Timer(1400, e -> d.dispose());
-        t.setRepeats(false);
-        t.start();
-        d.setVisible(true);
-    }
-
-    private static String toLabel(Card c) {
-        return c.getValore() + " di " + c.getSeme();
+    @Override
+    public void mostraImpostazioni() {
+        // Apertura finestra impostazioni gestita dal controller
     }
 }

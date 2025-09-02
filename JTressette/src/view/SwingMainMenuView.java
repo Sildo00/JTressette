@@ -4,61 +4,44 @@ import javax.swing.*;
 import java.awt.*;
 
 /**
- * Pannello principale del menu di Tressette.
+ * Pannello del menu principale con titolo e pulsanti Gioca, Impostazioni, Chiudi.
+ * Delega le azioni alla vista logica MainMenuView.
  */
 public class SwingMainMenuView extends JPanel {
 
+    private static final long serialVersionUID = 1L;
+
     /**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
-	private Runnable onPlay;
-    private Runnable onSettings;
-    private Runnable onExit;
+     * Costruisce il pannello del menu con layout e listener collegati alla vista logica.
+     * @param mainMenuView vista logica del menu
+     */
+    public SwingMainMenuView(MainMenuView mainMenuView) {
+        setLayout(new GridBagLayout());
+        setBackground(new Color(0, 102, 0));
 
-    public SwingMainMenuView() {
-        setLayout(new BorderLayout());
-        setBackground(Color.LIGHT_GRAY);
+        JLabel titolo = new JLabel("Tressette");
+        titolo.setFont(new Font("Serif", Font.BOLD, 48));
+        titolo.setForeground(Color.WHITE);
 
-        JLabel title = new JLabel("Tressette", SwingConstants.CENTER);
-        title.setFont(new Font("Serif", Font.BOLD, 48));
-        add(title, BorderLayout.NORTH);
+        JButton gioca = new JButton("Gioca");
+        gioca.addActionListener(e -> mainMenuView.clickPlay());
 
-        JPanel buttonPanel = new JPanel();
-        buttonPanel.setLayout(new GridLayout(3, 1, 10, 10));
-        buttonPanel.setBorder(BorderFactory.createEmptyBorder(50, 200, 50, 200));
+        JButton impostazioni = new JButton("Impostazioni");
+        impostazioni.addActionListener(e -> mainMenuView.clickSettings());
 
-        JButton playButton = new JButton("Gioca");
-        playButton.addActionListener(e -> {
-            if (onPlay != null) onPlay.run();
-        });
+        JButton esci = new JButton("Chiudi");
+        esci.addActionListener(e -> mainMenuView.clickExit());
 
-        JButton settingsButton = new JButton("Impostazioni");
-        settingsButton.addActionListener(e -> {
-            if (onSettings != null) onSettings.run();
-        });
-
-        JButton exitButton = new JButton("Esci");
-        exitButton.addActionListener(e -> {
-            if (onExit != null) onExit.run();
-        });
-
-        buttonPanel.add(playButton);
-        buttonPanel.add(settingsButton);
-        buttonPanel.add(exitButton);
-
-        add(buttonPanel, BorderLayout.CENTER);
-    }
-
-    public void setOnPlay(Runnable onPlay) {
-        this.onPlay = onPlay;
-    }
-
-    public void setOnSettings(Runnable onSettings) {
-        this.onSettings = onSettings;
-    }
-
-    public void setOnExit(Runnable onExit) {
-        this.onExit = onExit;
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(15, 15, 15, 15);
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        add(titolo, gbc);
+        gbc.gridy++;
+        add(gioca, gbc);
+        gbc.gridy++;
+        add(impostazioni, gbc);
+        gbc.gridy++;
+        add(esci, gbc);
     }
 }

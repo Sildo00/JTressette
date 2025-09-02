@@ -15,7 +15,6 @@ public class UserProfile implements Serializable {
     private String avatarPath;
     private int partiteGiocate;
     private int partiteVinte;
-    private int partitePerse;
     private int livello;
 
     /**
@@ -28,7 +27,6 @@ public class UserProfile implements Serializable {
         this.avatarPath = null;
         this.partiteGiocate = 0;
         this.partiteVinte = 0;
-        this.partitePerse = 0;
         this.livello = 1;
     }
 
@@ -121,7 +119,6 @@ public class UserProfile implements Serializable {
                 ", avatarPath='" + avatarPath + '\'' +
                 ", partiteGiocate=" + partiteGiocate +
                 ", partiteVinte=" + partiteVinte +
-                ", partitePerse=" + partitePerse +
                 ", livello=" + livello +
                 '}';
     }

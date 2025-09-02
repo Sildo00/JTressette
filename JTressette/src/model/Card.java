@@ -57,16 +57,16 @@ public class Card {
      */
     public int getRankValue() {
         return switch (valore) {
-            case ASSO -> 10;
-            case TRE -> 9;
-            case RE -> 8;
-            case CAVALLO -> 7;
-            case FANTE -> 6;
-            case SETTE -> 5;
-            case SEI -> 4;
-            case CINQUE -> 3;
-            case QUATTRO -> 2;
-            case DUE -> 1;
+        	case TRE -> 10;
+        	case DUE -> 9;
+        	case ASSO -> 8;
+            case RE -> 7;
+            case CAVALLO -> 6;
+            case FANTE -> 5;
+            case SETTE -> 4;
+            case SEI -> 3;
+            case CINQUE -> 2;
+            case QUATTRO -> 1;
         };
     }
 

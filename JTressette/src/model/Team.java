@@ -9,24 +9,24 @@ import java.util.Objects;
  * Contiene un nome e l'elenco dei membri.
  */
 public class Team {
-    private final String name;
+    private final String nome;
     private final List<Player> members;
 
     /**
      * Crea una squadra.
-     * @param name Nome della squadra (solo descrittivo).
+     * @param nome Nome della squadra (solo descrittivo).
      * @param members Lista dei membri. Nel 2vs2 ci si aspetta esattamente 2 giocatori.
      */
-    public Team(String name, List<Player> members) {
+    public Team(String nome, List<Player> members) {
         if (members == null || members.isEmpty()) {
             throw new IllegalArgumentException("Una squadra deve avere almeno un membro");
         }
-        this.name = name != null ? name : "Team";
+        this.nome = nome != null ? nome : "Team";
         this.members = new ArrayList<>(members);
     }
 
-    public String getName() {
-        return name;
+    public String getNome() {
+        return nome;
     }
 
     /**
@@ -38,7 +38,7 @@ public class Team {
 
     @Override
     public String toString() {
-        return "Team{" + name + ", members=" + members.stream().map(Player::getNome).toList() + "}";
+        return "Team{" + nome + ", membri=" + members.stream().map(Player::getNome).toList() + "}";
     }
 
     @Override
